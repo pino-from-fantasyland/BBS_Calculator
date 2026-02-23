@@ -1,0 +1,478 @@
+  <!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BBS Assessment Tool (v7: Final)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { --primary: #2c3e50; --accent: #0056b3; --accent-light: #e7f1ff; --bg-color: #f4f6f9; --border-color: #ced4da; --text-main: #212529; --text-muted: #6c757d; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 15px; line-height: 1.6; }
+    .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    h1 { font-size: 1.5rem; color: var(--primary); text-align: center; border-bottom: 2px solid var(--primary); padding-bottom: 12px; margin-top: 0;}
+    .control-panel { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid var(--border-color); }
+    .control-group { margin-bottom: 12px; }
+    .control-group label { font-weight: bold; display: block; margin-bottom: 6px; font-size: 0.9rem; }
+    select, input[type="text"] { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1rem; box-sizing: border-box; }
+    .bbs-item { margin-bottom: 30px; }
+    .bbs-item-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+    .radio-group-vertical { display: flex; flex-direction: column-reverse; gap: 8px; }
+    .radio-option { display: flex; align-items: center; padding: 12px 16px; background: #fff; border: 2px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: all 0.2s ease; position: relative; }
+    .radio-option input[type="radio"] { position: absolute; opacity: 0; }
+    .score-badge { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border-color); font-weight: bold; font-size: 1.1rem; margin-right: 16px; flex-shrink: 0; color: var(--text-muted); background-color: #fff; }
+    .criteria-text { font-size: 1rem; line-height: 1.4; }
+    .radio-option:has(input[type="radio"]:checked) { background-color: var(--accent-light); border-color: var(--accent); }
+    .radio-option:has(input[type="radio"]:checked) .score-badge { background-color: var(--accent); border-color: var(--accent); color: #fff; }
+    .radio-option:has(input[type="radio"]:checked) .criteria-text { font-weight: bold; color: var(--accent); }
+    
+    #result-panel { margin-top: 40px; padding: 25px 20px; border-radius: 12px; text-align: center; background: #fff; border: 2px solid var(--border-color); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .score-display { font-size: 3rem; margin: 10px 0; color: var(--primary); font-weight: bold; }
+    .max-score { font-size: 1.5rem; color: var(--text-muted); }
+    
+    #chart-container { position: relative; height: 320px; width: 100%; margin-bottom: 20px; display: none; }
+    #progress-wrapper { position: relative; margin: 40px 0 20px 0; display: none; }
+    #progress-container { width: 100%; background-color: #e9ecef; border-radius: 15px; height: 25px; overflow: hidden; }
+    #progress-bar { height: 100%; background-color: var(--accent); transition: width 0.5s ease; width: 0%; }
+    .cutoff-marker { position: absolute; top: -15px; width: 3px; height: 55px; background-color: #dc3545; z-index: 10; transform: translateX(-50%); border-radius: 2px; }
+    .cutoff-label { position: absolute; top: -35px; transform: translateX(-50%); font-size: 0.85rem; font-weight: bold; color: #dc3545; white-space: nowrap; background: #fff; padding: 2px 6px; border-radius: 4px; border: 1px solid #dc3545; }
+    
+    #screening-alerts { display: none; text-align: left; margin: 20px 0; }
+    .alert-box { padding: 12px; border-radius: 6px; margin-bottom: 8px; font-weight: bold; display: flex; align-items: center; }
+    .alert-safe { background-color: #d4edda; color: #155724; border-left: 5px solid #28a745; }
+    .alert-danger { background-color: #f8d7da; color: #721c24; border-left: 5px solid #dc3545; }
+    
+    .status-good { background-color: #d4edda !important; border-color: #c3e6cb !important; color: #155724;}
+    .status-warn { background-color: #fff3cd !important; border-color: #ffeeba !important; color: #856404;}
+    .status-alert { background-color: #f8d7da !important; border-color: #f5c6cb !important; color: #721c24;}
+    #cutoff-message { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 6px;}
+    
+    #mdc-result { display: none; margin-top: 15px; padding: 15px; border-radius: 8px; border: 2px dashed var(--border-color); text-align: left; line-height: 1.5; font-size: 0.95rem; }
+    .mdc-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 5px; border-bottom: 1px solid currentColor; padding-bottom: 4px;}
+
+    .ref-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; justify-content: center; }
+    .btn-ref { padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.85rem; cursor: pointer; background: #fff; color: var(--primary); }
+    .btn-ref:hover { background: var(--accent-light); border-color: var(--accent); }
+    #reference-panel { display: none; margin-top: 10px; padding: 12px; border-radius: 8px; background: #f8f9fa; border: 1px solid var(--border-color); text-align: left; font-size: 0.85rem; line-height: 1.6; color: var(--text-main); }
+    #reference-panel .ref-heading { font-weight: bold; margin-bottom: 6px; color: var(--primary); }
+    #reference-panel .ref-entry { margin-bottom: 10px; }
+    #reference-panel .ref-entry:last-child { margin-bottom: 0; }
+
+    .btn { padding: 10px 15px; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn-primary { background-color: var(--primary); color: white; width: 100%; margin-top: 20px;}
+    .btn-primary:hover { background-color: #1a252f; }
+    .btn-secondary { background-color: #6c757d; color: white; white-space: nowrap;}
+    .btn-secondary:hover { background-color: #5a6268; }
+    .flex-row { display: flex; gap: 10px; align-items: stretch; }
+    #history-message { margin-top: 15px; font-size: 0.95rem; font-weight: bold; color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>BBS Assessment Tool</h1>
+
+  <div class="control-panel">
+    <div class="control-group">
+      <label>患者ID（※氏名など個人特定情報は入力しないこと）</label>
+      <div class="flex-row">
+        <input type="text" id="patientId" placeholder="例: 1234-A">
+        <button id="loadBtn" class="btn btn-secondary">履歴読込</button>
+      </div>
+      <div id="history-message"></div>
+    </div>
+
+    <div class="control-group">
+      <label>評価モード</label>
+      <select id="evalMode">
+        <option value="full">フルパッケージ (14項目 / レーダーチャート)</option>
+        <option value="bbs9">時短モード: BBS-9 (9項目 / 達成度バー)</option>
+        <option value="screening">高難易度スクリーニング (後半4項目)</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>患者属性（カットオフ・MDC判定用）</label>
+      <select id="patientProfile">
+        <option value="elderly">一般的な高齢者</option>
+        <option value="stroke">脳卒中（入院時）</option>
+        <option value="pd">パーキンソン病</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="evaluation-form"></div>
+
+  <div id="result-panel">
+    <div>合計スコア</div>
+    <div class="score-display">
+      <span id="total-score">-</span><span class="max-score"> / <span id="max-score">56</span></span>
+    </div>
+
+    <div id="chart-container"><canvas id="radarChart"></canvas></div>
+    
+    <div id="progress-wrapper">
+      <div id="cutoff-marker-container"></div>
+      <div id="progress-container"><div id="progress-bar"></div></div>
+    </div>
+    
+    <div id="screening-alerts"></div>
+    <div id="cutoff-message">すべての項目を評価すると結果が表示されます。</div>
+
+    <div class="ref-buttons">
+      <button type="button" id="btnCutoffRef" class="btn-ref">📚 カットオフの出典</button>
+      <button type="button" id="btnMdcRef" class="btn-ref">📚 MDCの出典</button>
+    </div>
+    <div id="reference-panel"></div>
+
+    <div id="mdc-result"></div>
+
+    <button id="saveBtn" class="btn btn-primary" style="display: none;">この結果を保存する</button>
+  </div>
+</div>
+
+<script>
+  // グラフ描画用の短いタイトル (shortTitle) を追加！
+  const bbsItems = [
+    { id: 1, title: "1. 座位からの立ち上がり", shortTitle: "起立", isBBS9: true, isScreening: false, criteria: ["中等度〜最大介助", "最小介助", "複数回の試行で手を使用し起立", "手を使用して自立", "手を使わずに立ち上がり自立安定"] },
+    { id: 2, title: "2. 立位保持（支持なし）", shortTitle: "立位保持", isBBS9: true, isScreening: false, criteria: ["30秒保持不能", "30秒間に複数回の試行", "30秒間自立", "2分間監視下", "2分間安全に自立"] },
+    { id: 3, title: "3. 座位保持（背もたれなし）", shortTitle: "座位保持", isBBS9: false, isScreening: false, criteria: ["10秒保持不能", "10秒保持", "30秒保持", "2分間監視下", "腕を組んで2分間自立"] },
+    { id: 4, title: "4. 立位からの着座", shortTitle: "着座", isBBS9: true, isScreening: false, criteria: ["介助が必要", "下降が制御不能", "下腿後面を椅子に当てて制御", "手で下降を制御", "安全に着座"] },
+    { id: 5, title: "5. 移乗動作", shortTitle: "移乗", isBBS9: true, isScreening: false, criteria: ["2名の介助が必要", "1名の介助が必要", "言語的指示や監視が必要", "手による支持が必要", "安全に移乗"] },
+    { id: 6, title: "6. 閉眼立位保持", shortTitle: "閉眼立位", isBBS9: false, isScreening: false, criteria: ["転倒防止の介助が必要", "閉眼3秒不可", "3秒保持", "10秒間監視下", "10秒間自立"] },
+    { id: 7, title: "7. 閉脚立位保持", shortTitle: "閉脚立位", isBBS9: true, isScreening: false, criteria: ["15秒保持不能", "15秒保持(介助開始)", "30秒保持不能", "1分間監視下", "1分間自立"] },
+    { id: 8, title: "8. 前方へのリーチ動作", shortTitle: "前方リーチ", isBBS9: true, isScreening: false, criteria: ["支持が必要", "監視が必要", "2インチ以上", "5インチ以上", "10インチ以上"] },
+    { id: 9, title: "9. 床の物品を拾い上げる", shortTitle: "物品拾い", isBBS9: true, isScreening: false, criteria: ["介助が必要", "拾えない", "1-2インチまで近づく", "監視下で拾う", "容易に拾う"] },
+    { id: 10, title: "10. 左右の後方振り返り", shortTitle: "振り返り", isBBS9: false, isScreening: false, criteria: ["介助が必要", "監視が必要", "側方のみ", "片側のみ良好", "両側良好"] },
+    { id: 11, title: "11. 360度方向転換", shortTitle: "360度転換", isBBS9: false, isScreening: true, criteria: ["介助が必要", "監視が必要", "安全だがゆっくり", "片側のみ4秒以内", "両方向4秒以内"] },
+    { id: 12, title: "12. 踏み台への足のせ", shortTitle: "踏み台", isBBS9: true, isScreening: true, criteria: ["試行不能", "最小介助で2回", "監視下で4回", "20秒以上で8回", "20秒以内で8回"] },
+    { id: 13, title: "13. タンデム立位（継ぎ足）", shortTitle: "継ぎ足立位", isBBS9: false, isScreening: true, criteria: ["バランス喪失", "15秒保持", "小歩幅で30秒保持", "前方に置くがずれる", "30秒保持"] },
+    { id: 14, title: "14. 片脚立位保持", shortTitle: "片脚立位", isBBS9: true, isScreening: true, criteria: ["試行不能", "3秒保持不能", "3秒以上保持", "5〜10秒保持", "10秒以上保持"] }
+  ];
+
+  const cutoffRules = [
+    { profile: "elderly", mode: "full", evaluate: (score) => { if (score < 45) return { msg: "転倒リスクが有意に増大（45点未満）", status: "status-alert" }; return { msg: "機能的バランスは比較的良好", status: "status-good" }; } },
+    { profile: "stroke", mode: "full", evaluate: (score) => { if (score >= 29) return { msg: "実用歩行獲得の可能性高", status: "status-good" }; if (score >= 12) return { msg: "介助なし自立歩行の可能性", status: "status-warn" }; return { msg: "転倒リスク非常に高い", status: "status-alert" }; } },
+    { profile: "pd", mode: "full", evaluate: (score) => { if (score < 47) return { msg: "転倒リスクが高い状態（47点未満）", status: "status-alert" }; return { msg: "転倒リスクは比較的低い", status: "status-good" }; } },
+    { profile: "elderly", mode: "bbs9", threshold: 32, evaluate: (score) => { if (score <= 32) return { msg: "転倒リスクが有意に増大（BBS-9 カットオフ32点以下）", status: "status-alert" }; return { msg: "機能的バランスは比較的良好", status: "status-good" }; } },
+    { profile: "stroke", mode: "bbs9", threshold: 28, evaluate: (score) => { if (score <= 28) return { msg: "脳卒中患者における転倒リスク増大（BBS-9 カットオフ28点以下）", status: "status-alert" }; return { msg: "機能的バランスは比較的良好", status: "status-good" }; } }
+  ];
+
+  const mdcCalculators = {
+    elderly: (prevScore) => {
+      if (prevScore >= 45) return 4.0;
+      if (prevScore >= 35) return 5.0;
+      if (prevScore >= 25) return 7.0;
+      return 5.0; 
+    },
+    stroke: (prevScore) => 7.0, 
+    pd: (prevScore) => 5.0      
+  };
+
+  // カットオフ判定の出典（属性・モード別）
+  const cutoffReferences = {
+    elderly_full: [
+      { author: "Shumway-Cook A et al.", year: "1997", title: "Predicting the probability for falls in community-dwelling older adults. Physical Therapy.", note: "高齢者45点未満で転倒リスク有意増大の閾値として広く引用。RehabMeasures Database等で参照。" }
+    ],
+    elderly_bbs9: [
+      { author: "Hohtari-Kivimäki U et al.", year: "-", title: "BBS-9（短縮版）の転倒予測カットオフに関する検証研究。", note: "BBS-9スコア32/33点を境界とする転倒リスクの報告に基づく。" }
+    ],
+    stroke_full: [
+      { author: "Louie DR, Eng JJ.", year: "2008", title: "Berg Balance Scale score at admission can predict walking suitable for community ambulation at discharge from inpatient stroke rehabilitation. J Rehabil Med.", note: "入院時29点以上で実用歩行獲得、12点以上で介助なし自立歩行の可能性。" }
+    ],
+    stroke_bbs9: [
+      { author: "脳卒中におけるBBS短縮版の報告", year: "-", title: "脳卒中患者の転倒リスクスクリーニングにおけるBBS-9カットオフ（28点以下等）の知見に基づく。", note: "施設・対象により異なる場合あり。Scoping review等を参照。" }
+    ],
+    pd_full: [
+      { author: "Leddy AL et al.", year: "2011", title: "Accuracy of Fall Prediction in Parkinson Disease: Six-Month and 12-Month Prospective Analyses. Physical Therapy.", note: "BBS 47点未満で転倒リスクが高い状態を示す境界線（AUC 0.68–0.87）。" }
+    ]
+  };
+
+  // MDC判定の出典（属性別）
+  const mdcReferences = {
+    elderly: [
+      { author: "Academy of Neurologic Physical Therapy.", year: "-", title: "BERG BALANCE SCALE (BBS) Pocket Guide.", note: "高齢者ではベースラインスコア帯によりMDCが変動（例: 45–56点で3.3–4.0点、25–34点で6.3–7.0点等）。" }
+    ],
+    stroke: [
+      { author: "Academy of Neurologic Physical Therapy.", year: "-", title: "BERG BALANCE SCALE (BBS) Pocket Guide.", note: "脳卒中（急性期）でMDC 6.0–7.0点。測定誤差を超えた真の変化の判定に用いる。" }
+    ],
+    pd: [
+      { author: "Academy of Neurologic Physical Therapy.", year: "-", title: "BERG BALANCE SCALE (BBS) Pocket Guide.", note: "パーキンソン病でMDC 5.0点。5点以上の変化で真の改善/悪化と解釈する根拠。" }
+    ]
+  };
+
+  function showReferencePanel(type) {
+    const panel = document.getElementById('reference-panel');
+    const profile = appState.profile;
+    const mode = appState.mode;
+    let refs = [];
+    let heading = '';
+    if (type === 'cutoff') {
+      const key = profile + '_' + mode;
+      refs = cutoffReferences[key] || [];
+      heading = 'カットオフ判定の出典（' + (profile === 'elderly' ? '一般的な高齢者' : profile === 'stroke' ? '脳卒中（入院時）' : 'パーキンソン病') + '・' + (mode === 'full' ? 'フル14項目' : mode === 'bbs9' ? 'BBS-9' : 'スクリーニング') + '）';
+    } else {
+      refs = mdcReferences[profile] || [];
+      heading = 'MDC判定の出典（' + (profile === 'elderly' ? '一般的な高齢者' : profile === 'stroke' ? '脳卒中' : 'パーキンソン病') + '）';
+    }
+    const closeBtn = '<button type="button" class="btn-ref" style="margin-top:8px;" onclick="document.getElementById(\'reference-panel\').style.display=\'none\'">閉じる</button>';
+    if (refs.length === 0) {
+      panel.innerHTML = '<span class="ref-heading">' + heading + '</span><p>該当する出典情報がありません。</p>' + closeBtn;
+    } else {
+      panel.innerHTML = '<span class="ref-heading">' + heading + '</span>' + refs.map(r =>
+        '<div class="ref-entry">' +
+        '<strong>' + (r.author || '') + (r.year ? ' (' + r.year + '). ' : '. ') + '</strong>' +
+        (r.title ? r.title + (r.note ? '<br><span style="color:var(--text-muted);">' + r.note + '</span>' : '') : r.note) +
+        '</div>'
+      ).join('') + closeBtn;
+    }
+    panel.style.display = 'block';
+  }
+
+  let appState = { mode: 'full', profile: 'elderly', scores: new Array(14).fill(null), prevScore: null, prevMode: null };
+  let radarChartInstance = null;
+
+  function renderItems() {
+    const formContainer = document.getElementById('evaluation-form');
+    formContainer.innerHTML = '';
+    appState.scores = new Array(14).fill(null); 
+
+    bbsItems.forEach((item, index) => {
+      if (appState.mode === 'bbs9' && !item.isBBS9) return;
+      if (appState.mode === 'screening' && !item.isScreening) return;
+
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'bbs-item';
+      let radiosHtml = '<div class="radio-group-vertical">';
+      for (let i = 0; i <= 4; i++) {
+        radiosHtml += `
+          <label class="radio-option">
+            <input type="radio" name="item_${index}" value="${i}" onchange="updateScore(${index}, ${i})">
+            <span class="score-badge">${i}</span>
+            <span class="criteria-text">${item.criteria[i]}</span>
+          </label>
+        `;
+      }
+      radiosHtml += '</div>';
+      itemDiv.innerHTML = `<div class="bbs-item-title">${item.title}</div>${radiosHtml}`;
+      formContainer.appendChild(itemDiv);
+    });
+
+    const maxScoreMap = { 'full': 56, 'bbs9': 36, 'screening': 16 };
+    document.getElementById('max-score').innerText = maxScoreMap[appState.mode];
+    
+    document.getElementById('saveBtn').style.display = 'none';
+    document.getElementById('mdc-result').style.display = 'none';
+    updateVisuals();
+  }
+
+  window.updateScore = function(index, value) {
+    appState.scores[index] = parseInt(value, 10);
+    updateVisuals();
+  };
+
+  function updateVisuals() {
+    let sum = 0, answeredCount = 0;
+    let targetItems = [];
+
+    bbsItems.forEach((item, idx) => {
+      let isTarget = false;
+      if (appState.mode === 'full') isTarget = true;
+      if (appState.mode === 'bbs9' && item.isBBS9) isTarget = true;
+      if (appState.mode === 'screening' && item.isScreening) isTarget = true;
+      
+      if (isTarget) {
+        targetItems.push({ idx: idx, item: item });
+        if (appState.scores[idx] !== null) { sum += appState.scores[idx]; answeredCount++; }
+      }
+    });
+
+    document.getElementById('total-score').innerText = answeredCount === 0 ? "-" : sum;
+    const msgEl = document.getElementById('cutoff-message');
+    const mdcEl = document.getElementById('mdc-result');
+    document.getElementById('result-panel').classList.remove('status-good', 'status-warn', 'status-alert');
+    
+    const saveBtn = document.getElementById('saveBtn');
+
+    if (answeredCount < targetItems.length) {
+      msgEl.innerText = `残り ${targetItems.length - answeredCount} 項目を評価してください。`;
+      msgEl.className = "";
+      saveBtn.style.display = 'none';
+      mdcEl.style.display = 'none';
+    } else {
+      const rule = cutoffRules.find(r => r.profile === appState.profile && r.mode === appState.mode);
+      if (rule) {
+        const result = rule.evaluate(sum);
+        msgEl.innerText = result.msg;
+        document.getElementById('result-panel').classList.add(result.status);
+      } else {
+        msgEl.innerText = "すべての評価が完了しました。";
+        msgEl.className = "status-good";
+      }
+      saveBtn.style.display = 'block';
+
+      if (appState.prevScore !== null && appState.prevMode === appState.mode) {
+        const diff = sum - appState.prevScore;
+        const requiredMdc = mdcCalculators[appState.profile] ? mdcCalculators[appState.profile](appState.prevScore) : null;
+
+        if (requiredMdc !== null) {
+          mdcEl.style.display = 'block';
+          const isTrueChange = Math.abs(diff) >= requiredMdc;
+          const sign = diff > 0 ? "+" : "";
+          
+          if (isTrueChange) {
+            mdcEl.className = diff > 0 ? "status-good" : "status-alert";
+            const trend = diff > 0 ? "改善" : "悪化";
+            mdcEl.innerHTML = `
+              <div class="mdc-title">📈 MDC判定：有意な変化（統計学的有意）</div>
+              前回（${appState.prevScore}点）から <strong>${sign}${diff}点</strong> の変化です。<br>
+              この属性におけるMDC（${requiredMdc}点）を満たしており、測定誤差を超えた<strong>真の${trend}</strong>である可能性が高いです。
+            `;
+          } else {
+            mdcEl.className = "status-warn";
+            mdcEl.innerHTML = `
+              <div class="mdc-title">📊 MDC判定：誤差の範囲内</div>
+              前回（${appState.prevScore}点）から <strong>${sign}${diff}点</strong> の変化です。<br>
+              この属性におけるMDC（${requiredMdc}点）に満たないため、日内変動や測定誤差によるノイズの可能性があります。
+            `;
+          }
+        }
+      } else if (appState.prevScore !== null && appState.prevMode !== appState.mode) {
+         mdcEl.style.display = 'block';
+         mdcEl.className = "status-warn";
+         mdcEl.innerHTML = `⚠️ 前回の評価モード（${appState.prevMode}）と異なるため、MDC判定は行えません。`;
+      } else {
+         mdcEl.style.display = 'none';
+      }
+    }
+
+    const chartCont = document.getElementById('chart-container');
+    const progWrapper = document.getElementById('progress-wrapper');
+    const screenCont = document.getElementById('screening-alerts');
+    
+    chartCont.style.display = 'none';
+    progWrapper.style.display = 'none';
+    screenCont.style.display = 'none';
+
+    if (appState.mode === 'full') {
+      chartCont.style.display = 'block';
+      drawRadarChart(targetItems);
+    } else if (appState.mode === 'bbs9') {
+      progWrapper.style.display = 'block';
+      const percentage = (sum / 36) * 100;
+      const bar = document.getElementById('progress-bar');
+      bar.style.width = `${percentage}%`;
+      
+      const rule = cutoffRules.find(r => r.profile === appState.profile && r.mode === 'bbs9');
+      if (rule && rule.threshold) {
+        bar.style.backgroundColor = sum <= rule.threshold ? '#dc3545' : 'var(--accent)';
+        const markerContainer = document.getElementById('cutoff-marker-container');
+        const thresholdPct = (rule.threshold / 36) * 100;
+        markerContainer.innerHTML = `<div class="cutoff-marker" style="left: ${thresholdPct}%"></div><div class="cutoff-label" style="left: ${thresholdPct}%">カットオフ: ${rule.threshold}点</div>`;
+      }
+    } else if (appState.mode === 'screening') {
+      screenCont.style.display = 'block';
+      drawScreeningAlerts(targetItems);
+    }
+  }
+
+  function drawRadarChart(targetItems) {
+    const ctx = document.getElementById('radarChart').getContext('2d');
+    // ここで `item.shortTitle` を使うように変更！
+    const labels = targetItems.map(t => t.item.shortTitle);
+    const dataPoints = targetItems.map(t => appState.scores[t.idx] !== null ? appState.scores[t.idx] : 0);
+    
+    if (radarChartInstance) { radarChartInstance.destroy(); }
+    
+    radarChartInstance = new Chart(ctx, { 
+      type: 'radar', 
+      data: { 
+        labels: labels, 
+        datasets: [{ 
+          label: 'スコア', 
+          data: dataPoints, 
+          backgroundColor: 'rgba(0, 86, 179, 0.2)', 
+          borderColor: 'rgba(0, 86, 179, 1)', 
+          pointBackgroundColor: 'rgba(0, 86, 179, 1)', 
+          borderWidth: 2 
+        }] 
+      }, 
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        scales: { 
+          r: { 
+            min: 0, max: 4, ticks: { stepSize: 1 },
+            pointLabels: {
+              font: { size: 10 } // スマホでも見やすいようにフォントサイズ調整
+            }
+          } 
+        }, 
+        plugins: { legend: { display: false } } 
+      } 
+    });
+  }
+
+  function drawScreeningAlerts(targetItems) {
+    const container = document.getElementById('screening-alerts');
+    container.innerHTML = ''; 
+    targetItems.forEach(t => {
+      const score = appState.scores[t.idx];
+      if (score === null) return;
+      const alertDiv = document.createElement('div');
+      if (score < 3) { alertDiv.className = 'alert-box alert-danger'; alertDiv.innerHTML = `⚠️ [転倒リスク高] ${t.item.title} が自立して行えません (${score}点)`; } 
+      else { alertDiv.className = 'alert-box alert-safe'; alertDiv.innerHTML = `✅ ${t.item.title} は比較的安定しています (${score}点)`; }
+      container.appendChild(alertDiv);
+    });
+  }
+
+  const patientIdInput = document.getElementById('patientId');
+  const historyMsg = document.getElementById('history-message');
+
+  document.getElementById('saveBtn').addEventListener('click', () => {
+    const pid = patientIdInput.value.trim();
+    if (!pid) { alert("保存するには、上部の「患者ID」を入力してください！"); return; }
+    
+    let sum = 0;
+    appState.scores.forEach(s => { if(s !== null) sum += s; });
+
+    const record = { date: new Date().toLocaleDateString(), mode: appState.mode, profile: appState.profile, score: sum };
+    let db = JSON.parse(localStorage.getItem('bbs_database')) || {};
+    if (!db[pid]) db[pid] = [];
+    db[pid].push(record);
+    localStorage.setItem('bbs_database', JSON.stringify(db));
+    
+    historyMsg.style.color = "green";
+    historyMsg.innerText = `✅ ${record.date} のデータ（${sum}点）を端末に保存しました！`;
+  });
+
+  document.getElementById('loadBtn').addEventListener('click', () => {
+    const pid = patientIdInput.value.trim();
+    if (!pid) { alert("読み込む患者IDを入力してください。"); return; }
+
+    let db = JSON.parse(localStorage.getItem('bbs_database')) || {};
+    
+    if (db[pid] && db[pid].length > 0) {
+      const lastRecord = db[pid][db[pid].length - 1];
+      historyMsg.style.color = "var(--accent)";
+      historyMsg.innerText = `📅 前回（${lastRecord.date}）の記録を読込中...（評価を完了するとMDC判定が出ます）`;
+      
+      appState.prevScore = lastRecord.score; 
+      appState.prevMode = lastRecord.mode;
+      updateVisuals();
+    } else {
+      historyMsg.style.color = "gray";
+      historyMsg.innerText = "このIDの過去データは見つかりませんでした。";
+      appState.prevScore = null;
+      appState.prevMode = null;
+    }
+  });
+
+  document.getElementById('evalMode').addEventListener('change', (e) => { appState.mode = e.target.value; renderItems(); });
+  document.getElementById('patientProfile').addEventListener('change', (e) => { appState.profile = e.target.value; updateVisuals(); });
+
+  document.getElementById('btnCutoffRef').addEventListener('click', () => showReferencePanel('cutoff'));
+  document.getElementById('btnMdcRef').addEventListener('click', () => showReferencePanel('mdc'));
+
+  renderItems(); 
+</script>
+</body>
+</html>

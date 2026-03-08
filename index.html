@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -95,6 +96,7 @@
         <option value="elderly">一般的な高齢者</option>
         <option value="stroke">脳卒中（入院時）</option>
         <option value="pd">パーキンソン病</option>
+        <option value="hipfx">大腿骨頚部骨折（退院時歩行自立予測）</option>
       </select>
     </div>
   </div>
@@ -152,6 +154,7 @@
     { profile: "elderly", mode: "full", evaluate: (score) => { if (score < 45) return { msg: "転倒リスクが有意に増大（45点未満）", status: "status-alert" }; return { msg: "機能的バランスは比較的良好", status: "status-good" }; } },
     { profile: "stroke", mode: "full", evaluate: (score) => { if (score >= 29) return { msg: "実用歩行獲得の可能性高", status: "status-good" }; if (score >= 12) return { msg: "介助なし自立歩行の可能性", status: "status-warn" }; return { msg: "転倒リスク非常に高い", status: "status-alert" }; } },
     { profile: "pd", mode: "full", evaluate: (score) => { if (score < 47) return { msg: "転倒リスクが高い状態（47点未満）", status: "status-alert" }; return { msg: "転倒リスクは比較的低い", status: "status-good" }; } },
+    { profile: "hipfx", mode: "full", evaluate: (score) => { if (score >= 28) return { msg: "退院時自立歩行（FAC≥4）の可能性が高い（28点以上）", status: "status-good" }; return { msg: "28点未満（自立歩行のカットオフには達していない）", status: "status-warn" }; } },
     { profile: "elderly", mode: "bbs9", threshold: 32, evaluate: (score) => { if (score <= 32) return { msg: "転倒リスクが有意に増大（BBS-9 カットオフ32点以下）", status: "status-alert" }; return { msg: "機能的バランスは比較的良好", status: "status-good" }; } },
     { profile: "stroke", mode: "bbs9", threshold: 28, evaluate: (score) => { if (score <= 28) return { msg: "脳卒中患者における転倒リスク増大（BBS-9 カットオフ28点以下）", status: "status-alert" }; return { msg: "機能的バランスは比較的良好", status: "status-good" }; } }
   ];
@@ -183,6 +186,9 @@
     ],
     pd_full: [
       { author: "Leddy AL et al.", year: "2011", title: "Accuracy of Fall Prediction in Parkinson Disease: Six-Month and 12-Month Prospective Analyses. Physical Therapy.", note: "BBS 47点未満で転倒リスクが高い状態を示す境界線（AUC 0.68–0.87）。" }
+    ],
+    hipfx_full: [
+      { author: "Tamura S et al.", year: "2022", title: "Development of Cut-off Values on the Berg Balance Scale for Predicting Walking Independence in Older Adults with Hip Fracture. Progress in Rehabilitation Medicine.", note: "回復期入院1週間以内のBBS。28点以上で退院時自立歩行（FAC≥4）の可能性が高い（AUC 0.76）。PMID: 36118148." }
     ]
   };
 
@@ -196,6 +202,9 @@
     ],
     pd: [
       { author: "Academy of Neurologic Physical Therapy.", year: "-", title: "BERG BALANCE SCALE (BBS) Pocket Guide.", note: "パーキンソン病でMDC 5.0点。5点以上の変化で真の改善/悪化と解釈する根拠。" }
+    ],
+    hipfx: [
+      { author: "-", year: "-", title: "大腿骨頚部骨折ではBBSのMDCは未確立のため、MDC判定は行っていません。", note: "" }
     ]
   };
 
@@ -208,10 +217,10 @@
     if (type === 'cutoff') {
       const key = profile + '_' + mode;
       refs = cutoffReferences[key] || [];
-      heading = 'カットオフ判定の出典（' + (profile === 'elderly' ? '一般的な高齢者' : profile === 'stroke' ? '脳卒中（入院時）' : 'パーキンソン病') + '・' + (mode === 'full' ? 'フル14項目' : mode === 'bbs9' ? 'BBS-9' : 'スクリーニング') + '）';
+      heading = 'カットオフ判定の出典（' + (profile === 'elderly' ? '一般的な高齢者' : profile === 'stroke' ? '脳卒中（入院時）' : profile === 'pd' ? 'パーキンソン病' : profile === 'hipfx' ? '大腿骨頚部骨折（退院時歩行自立予測）' : '') + '・' + (mode === 'full' ? 'フル14項目' : mode === 'bbs9' ? 'BBS-9' : 'スクリーニング') + '）';
     } else {
       refs = mdcReferences[profile] || [];
-      heading = 'MDC判定の出典（' + (profile === 'elderly' ? '一般的な高齢者' : profile === 'stroke' ? '脳卒中' : 'パーキンソン病') + '）';
+      heading = 'MDC判定の出典（' + (profile === 'elderly' ? '一般的な高齢者' : profile === 'stroke' ? '脳卒中' : profile === 'pd' ? 'パーキンソン病' : profile === 'hipfx' ? '大腿骨頚部骨折' : '') + '）';
     }
     const closeBtn = '<button type="button" class="btn-ref" style="margin-top:8px;" onclick="document.getElementById(\'reference-panel\').style.display=\'none\'">閉じる</button>';
     if (refs.length === 0) {
